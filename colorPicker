@@ -1,0 +1,167 @@
+#!/usr/bin/python3
+import cv2
+import numpy as np
+import sys
+import os
+import random
+
+# Scaled to Fit Window
+def drawS(event, myX, myY, flag, param):
+	global winS,winS0,scale,winP, winP0,winPC0, winC, winC0, win, BSIZE
+
+	# ROI selection
+	(x,y)=(myX,myY)
+	HBSIZE=int(BSIZE/2) # Half of BSIZE (Box size)
+	if event == cv2.EVENT_LBUTTONDOWN and x >= (BSIZE +120):
+		x -= (BSIZE + 120)
+		winS=winS0.copy()
+		poi=(x,y)
+		cv2.circle(winS, poi, 5 , (255,0,0), 2)
+		# Selecting a region of 400x400 around point poi
+		pt1=(int(x-HBSIZE*scale),int(y-HBSIZE*scale))
+		pt2=(int(x+HBSIZE*scale),int(y+HBSIZE*scale))
+		cv2.rectangle(winS,pt1,pt2,(255,0,0), 2)
+
+		# Top left point within the ROI		
+		ptpy=int(y/scale)-HBSIZE
+		ptpx=int(x/scale)-HBSIZE
+		
+		# input image win x indices
+		ptix0=ptpx
+		ptix1=ptpx+BSIZE
+		ptiy0=ptpy
+		ptiy1=ptpy+BSIZE
+
+		# ROI image winP indices
+
+		ptox0=0
+		ptox1=BSIZE
+		ptoy0=0
+		ptoy1=BSIZE
+
+
+		if ptpx < 0 or ptpy < 0 or ptix1 > win.shape[1] or ptiy1  > win.shape[0]:
+			winP=winPC0.copy() # whole white
+			if ptpx < 0 :
+				ptox0=abs(ptpx)
+				ptix0=0
+				
+			if ptpy < 0 :
+				ptoy0=abs(ptpy)
+				ptiy0=0
+			
+			if ptix1 > win.shape[1] :
+				ptix1=win.shape[1]
+				ptox1=win.shape[1] - ptpx
+
+			if ptiy1 > win.shape[0] :
+				ptiy1 = win.shape[0]
+				ptoy1 = win.shape[0] - ptpy
+			
+		winP[ptoy0:ptoy1,ptox0:ptox1,:]=win[ptiy0:ptiy1,ptix0:ptix1,:]
+		#print(winP.shape)
+		winP0=winP.copy()
+
+
+	# Color Chooser
+	(x,y)=(myX,myY)
+	if event == cv2.EVENT_LBUTTONDOWN and x < (BSIZE+110) and x >= 110 : 
+		#run = True
+		winP=winP0.copy()
+		x -= 110 		
+		cv2.circle(winP, (x,y), 5 , (255,0,0), 2)
+		Color=winP[y,x,:]
+		Color=list(Color)
+		print("Color=",Color," x=",x," y=",y)
+		if len(Color) == 3:
+			Color.append(255)
+		winC=winC0.copy()
+		winC[0:100,:]=Color
+		yTxt=120
+		cv2.putText(winC,"X=%d" % (x),(5,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0));yTxt+=20
+		cv2.putText(winC,"Y=%d" % (y),(5,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0));yTxt+=20
+		cv2.putText(winC,"Color=", (5,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0));yTxt+=20
+		cv2.putText(winC,"R: %d" % (Color[2]),(5,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0))
+		cv2.putText(winC,"#%02X" % (Color[2]),(65,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0))
+		yTxt+=20
+		cv2.putText(winC,"G: %d" % (Color[1]),(5,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0))
+		cv2.putText(winC,"#%02X" % (Color[1]),(65,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0))
+		yTxt+=20
+		cv2.putText(winC,"B: %d" % (Color[0]),(5,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0))
+		cv2.putText(winC,"#%02X" % (Color[0]),(65,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0))
+		yTxt+=20
+		cv2.putText(winC,"A: %d" % (Color[3]),(5,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0))
+		cv2.putText(winC,"#%02X" % (Color[3]),(65,yTxt),cv2.FONT_HERSHEY_PLAIN,1,(255,0,0))
+
+
+# Window name for scaled image
+winScale='Scaled To Fit : Click on the image to select ROI'
+
+def get_rcol():
+	return [random.randint(0,255),random.randint(0,255),random.randint(0,255)]
+
+def get_grad(myc1,myc2,height,width):
+	r=np.linspace(myc1[2],myc2[2],width,dtype=np.uint8)
+	g=np.linspace(myc1[1],myc2[1],width,dtype=np.uint8)
+	b=np.linspace(myc1[0],myc2[0],width,dtype=np.uint8)
+	hline=np.vstack((r,g,b)).T.tolist()
+	img=[hline.copy()]
+	for i in range(height-1):
+		img.append(hline.copy())
+	img=np.array(img,dtype=np.uint8)
+	return img
+
+if len(sys.argv) < 2 :
+	print("No filename provided. Random gradient image will be generated.")
+	win=np.zeros((1024,1024,4),dtype=np.uint8)
+	win[:,:,3]=255
+	c1=get_rcol()
+	c2=get_rcol()
+	win[:,:,0:3]=get_grad(c1,c2,1024,1024)
+else :
+	filename=sys.argv[1]
+	if os.path.exists(filename):
+		win = cv2.imread(filename,-1)
+		if win.shape[2] == 3:
+			alpha=np.zeros((win.shape[0],win.shape[1]),dtype=np.uint8)
+			alpha.fill(255)
+			win=np.dstack((win,alpha))
+		
+	else:
+		print("File : \"%s\" does not exist." % (filename))
+		exit(0)
+
+# SQUARE BOX SIZE BSIZE x BSIZE
+BSIZE=400
+
+scale=BSIZE/max(win.shape)
+winS=cv2.resize(win,None,fx=scale,fy=scale)
+winS0=winS.copy()
+cv2.imshow(winScale, winS)
+cv2.setMouseCallback(winScale, drawS)
+
+
+# winP is 400x400 ROI
+winP = np.zeros((BSIZE,BSIZE,4),dtype=np.uint8)
+winP.fill(255)
+winP0=winP.copy()
+winPC0=winP.copy()# Reset Clear (White)
+
+# Information area 100x400
+winC = np.zeros((BSIZE,100,4),dtype=np.uint8)
+winC.fill(255)
+winC0=winC.copy()
+
+# Vertical lines
+bar=np.zeros((BSIZE,10,4),dtype=np.uint8)
+bar[:,:,3]=255
+bar[:,:,0:3]=[0,80,0]
+
+while True:
+	cv2.imshow(winScale, np.hstack((winC,bar,winP,bar,winS)))
+	k = cv2.waitKey(1)
+
+	if k == 27:
+		cv2.destroyAllWindows()
+		break
+
