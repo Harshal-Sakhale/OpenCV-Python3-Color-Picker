@@ -10,4 +10,4 @@ Click using mouse over an image to display color metrics of the pixel under the 
 - There are 3 sections of the window. 
    The rightmost is where the scaled down copy of the given image is displayed.
    The middle section is where a small region of the image is displayed full scale.
-   The right most is where the chosen color is displayed along with the RGBA component values is decimal and hexadecimal.
+   The right most is where the chosen color is displayed along with the RGBA component values in decimal and hexadecimal.
